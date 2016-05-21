@@ -2,6 +2,7 @@
 
 #  This file was used to generate the 'unicode_data.c' file by parsing the
 #  Unicode data file 'UnicodeData.txt' of the Unicode Character Database.
+#  (from stdin, additional files are loaded directly)
 #  It is included for informational purposes only and not intended for
 #  production use.
 
@@ -75,25 +76,25 @@ $ignorable_list.each_line do |entry|
   end
 end
 
-$grapheme_boundclass_list = File.read("GraphemeBreakProperty.txt")
-$grapheme_boundclass = Hash.new("UTF8PROC_BOUNDCLASS_OTHER")
-$grapheme_boundclass_list.each_line do |entry|
-  if entry =~ /^([0-9A-F]+)\.\.([0-9A-F]+)\s*;\s*([A-Za-z_]+)/
-    $1.hex.upto($2.hex) { |e2| $grapheme_boundclass[e2] = "UTF8PROC_BOUNDCLASS_" + $3.upcase }
-  elsif entry =~ /^([0-9A-F]+)\s*;\s*([A-Za-z_]+)/
-    $grapheme_boundclass[$1.hex] = "UTF8PROC_BOUNDCLASS_" + $2.upcase
-  end
-end
+#$grapheme_boundclass_list = File.read("GraphemeBreakProperty.txt")
+#$grapheme_boundclass = Hash.new("UTF8PROC_BOUNDCLASS_OTHER")
+#$grapheme_boundclass_list.each_line do |entry|
+#  if entry =~ /^([0-9A-F]+)\.\.([0-9A-F]+)\s*;\s*([A-Za-z_]+)/
+#    $1.hex.upto($2.hex) { |e2| $grapheme_boundclass[e2] = "UTF8PROC_BOUNDCLASS_" + $3.upcase }
+#  elsif entry =~ /^([0-9A-F]+)\s*;\s*([A-Za-z_]+)/
+#    $grapheme_boundclass[$1.hex] = "UTF8PROC_BOUNDCLASS_" + $2.upcase
+#  end
+#end
 
-$charwidth_list = File.read("CharWidths.txt")
-$charwidth = Hash.new(0)
-$charwidth_list.each_line do |entry|
-  if entry =~ /^([0-9A-F]+)\.\.([0-9A-F]+)\s*;\s*([0-9]+)/
-    $1.hex.upto($2.hex) { |e2| $charwidth[e2] = $3.to_i }
-  elsif entry =~ /^([0-9A-F]+)\s*;\s*([0-9]+)/
-    $charwidth[$1.hex] = $2.to_i
-  end
-end
+#$charwidth_list = File.read("CharWidths.txt")
+#$charwidth = Hash.new(0)
+#$charwidth_list.each_line do |entry|
+#  if entry =~ /^([0-9A-F]+)\.\.([0-9A-F]+)\s*;\s*([0-9]+)/
+#    $1.hex.upto($2.hex) { |e2| $charwidth[e2] = $3.to_i }
+#  elsif entry =~ /^([0-9A-F]+)\s*;\s*([0-9]+)/
+#    $charwidth[$1.hex] = $2.to_i
+#  end
+#end
 
 $exclusions = File.read("CompositionExclusions.txt")[/# \(1\) Script Specifics.*?# Total code points:/m]
 $exclusions = $exclusions.chomp.split("\n").collect { |e| e.hex }
@@ -101,12 +102,12 @@ $exclusions = $exclusions.chomp.split("\n").collect { |e| e.hex }
 $excl_version = File.read("CompositionExclusions.txt")[/# \(2\) Post Composition Version precomposed characters.*?# Total code points:/m]
 $excl_version = $excl_version.chomp.split("\n").collect { |e| e.hex }
 
-$case_folding_string = File.open("CaseFolding.txt", :encoding => 'utf-8').read
-$case_folding = {}
-$case_folding_string.chomp.split("\n").each do |line|
-  next unless line =~ /([0-9A-F]+); [CFS]; ([0-9A-F ]+);/i
-  $case_folding[$1.hex] = $2.split(" ").collect { |e| e.hex }
-end
+#$case_folding_string = File.open("CaseFolding.txt", :encoding => 'utf-8').read
+#$case_folding = {}
+#$case_folding_string.chomp.split("\n").each do |line|
+#  next unless line =~ /([0-9A-F]+); [CFS]; ([0-9A-F ]+);/i
+#  $case_folding[$1.hex] = $2.split(" ").collect { |e| e.hex }
+#end
 
 $int_array = []
 $int_array_indicies = {}
@@ -167,23 +168,24 @@ class UnicodeChar
   end
   def c_entry(comb1_indicies, comb2_indicies)
     "  " <<
-    "{#{str2c category, 'CATEGORY'}, #{combining_class}, " <<
-    "#{str2c bidi_class, 'BIDI_CLASS'}, " <<
-    "#{str2c decomp_type, 'DECOMP_TYPE'}, " <<
-    "#{ary2c decomp_mapping}, " <<
-    "#{ary2c case_folding}, " <<
-    "#{uppercase_mapping or -1}, " <<
-    "#{lowercase_mapping or -1}, " <<
-    "#{titlecase_mapping or -1}, " <<
-    "#{comb1_indicies[code] ?
+    "(category:#{str2c category, 'CATEGORY'};combining_class:#{combining_class}; " <<
+    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
+    "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
+    "decomp_mapping:#{ary2c decomp_mapping}; " <<
+#    "casefold_mapping:#{ary2c case_folding}; " <<
+    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
+    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
+    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
+    "comb1st_index:#{comb1_indicies[code] ?
        (comb1_indicies[code]*comb2_indicies.keys.length) : -1
-      }, #{comb2_indicies[code] or -1}, " <<
-    "#{bidi_mirrored}, " <<
-    "#{$exclusions.include?(code) or $excl_version.include?(code)}, " <<
-    "#{$ignorable.include?(code)}, " <<
-    "#{%W[Zl Zp Cc Cf].include?(category) and not [0x200C, 0x200D].include?(category)}, " <<
-    "#{$grapheme_boundclass[code]}, " <<
-    "#{$charwidth[code]}},\n"
+      };comb2nd_index: #{comb2_indicies[code] or -1}; " <<
+    "bidi_mirrored:#{bidi_mirrored}; " <<
+    "comp_exclusion:#{$exclusions.include?(code) or $excl_version.include?(code)}; " <<
+    "ignorable:#{$ignorable.include?(code)}; " <<
+    "control_boundary:#{%W[Zl Zp Cc Cf].include?(category) and not [0x200C, 0x200D].include?(category)}; " <<
+#    "boundclass#{$grapheme_boundclass[code]}; " <<
+#    "charwidth:#{$charwidth[code]};\n"
+    ")\n"
   end
 end
 
@@ -269,7 +271,7 @@ for code in 0...0x110000
   end
 end
 
-$stdout << "const utf8proc_int32_t utf8proc_sequences[] = {\n  "
+$stdout << "const utf8proc_sequences:Array[0.." << $int_array.length - 1 << "] of longint=( \n "
 i = 0
 $int_array.each do |entry|
   i += 1
@@ -279,9 +281,9 @@ $int_array.each do |entry|
   end
   $stdout << entry << ", "
 end
-$stdout << "};\n\n"
+$stdout << ");\n\n"
 
-$stdout << "const utf8proc_uint16_t utf8proc_stage1table[] = {\n  "
+$stdout << "utf8proc_stage1table:Array[0.." << stage1.length - 1 << "] of word=( \n "
 i = 0
 stage1.each do |entry|
   i += 1
@@ -291,11 +293,12 @@ stage1.each do |entry|
   end
   $stdout << entry << ", "
 end
-$stdout << "};\n\n"
+$stdout << ");\n\n"
 
-$stdout << "const utf8proc_uint16_t utf8proc_stage2table[] = {\n  "
+stage2flat = stage2.flatten
+$stdout << "utf8proc_stage2table:Array[0.." << stage2flat.length - 1 << "] of word=(\n"
 i = 0
-stage2.flatten.each do |entry|
+stage2flat.each do |entry|
   i += 1
   if i == 8
     i = 0
@@ -303,16 +306,16 @@ stage2.flatten.each do |entry|
   end
   $stdout << entry << ", "
 end
-$stdout << "};\n\n"
+$stdout << ");\n\n"
 
-$stdout << "const utf8proc_property_t utf8proc_properties[] = {\n"
-$stdout << "  {0, 0, 0, 0, UINT16_MAX, UINT16_MAX, -1, -1, -1, -1, -1, false,false,false,false, UTF8PROC_BOUNDCLASS_OTHER, 0},\n"
+$stdout << "utf8proc_properties:Array[0.." << properties.length - 1 << "] of utf8proc_property_t=(\n"
+$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0),\n"
 properties.each { |line|
   $stdout << line
 }
-$stdout << "};\n\n"
+$stdout << ");\n\n"
 
-$stdout << "const utf8proc_int32_t utf8proc_combinations[] = {\n  "
+$stdout << "utf8proc_combinations:Array[0.." << comb1st_indicies.keys.length * comb2nd_indicies.keys.length - 1  << "] of longint=(\n  "
 i = 0
 comb1st_indicies.keys.sort.each_index do |a|
   comb2nd_indicies.keys.sort.each_index do |b|
@@ -324,5 +327,5 @@ comb1st_indicies.keys.sort.each_index do |a|
     $stdout << ( comb_array[a][b] or -1 ) << ", "
   end
 end
-$stdout << "};\n\n"
+$stdout << ");\n\n"
 
