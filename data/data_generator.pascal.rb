@@ -166,7 +166,7 @@ class UnicodeChar
   def case_folding
     $case_folding[code]
   end
-  def c_entry(comb1_indicies, comb2_indicies)
+  def c_entry(comb1_indicies, comb2nd_minpos, comb2nd_maxpos)
     ",\n(" <<
 #    "category:#{str2c category, 'CATEGORY'};" <<
     "combining_class:#{combining_class}; " <<
@@ -178,9 +178,7 @@ class UnicodeChar
 #    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
 #    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
 #    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
-    "comb1st_index:#{comb1_indicies[code] ?
-       (comb1_indicies[code]*comb2_indicies.keys.length) : -1
-      };comb2nd_index: #{comb2_indicies[code] or -1}; " <<
+    "comb1st_index:#{comb1_indicies[code] ? comb1_indicies[code] : -1}; comb2nd_index: #{comb2nd_minpos[code] ? comb2nd_minpos[code] * 256 | comb2nd_maxpos[code] : -1}; " <<
 #    "bidi_mirrored:#{bidi_mirrored}; " <<
     "comp_exclusion:#{$exclusions.include?(code) or $excl_version.include?(code)}; " <<
 #    "ignorable:#{$ignorable.include?(code)}; " <<
@@ -219,7 +217,10 @@ end
 
 comb1st_indicies = {}
 comb2nd_indicies = {}
+comb2nd_minpos = {}
+comb2nd_maxpos = {}
 comb_array = []
+comb_array_compressed = []
 
 chars.each do |char|
   if !char.nil? and char.decomp_type.nil? and char.decomp_mapping and
@@ -236,15 +237,26 @@ chars.each do |char|
     raise "Duplicate canonical mapping" if
       comb_array[comb1st_indicies[char.decomp_mapping[0]]][
       comb2nd_indicies[char.decomp_mapping[1]]]
-    comb_array[comb1st_indicies[char.decomp_mapping[0]]][
-      comb2nd_indicies[char.decomp_mapping[1]]] = char.code
+    comb_array[comb1st_indicies[char.decomp_mapping[0]]][comb2nd_indicies[char.decomp_mapping[1]]] = char.code
+
+    comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]] ||= []    
+    temp_index = comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]].length
+    unless comb2nd_minpos[char.decomp_mapping[1]]
+      comb2nd_minpos[char.decomp_mapping[1]] = comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]].length
+      comb2nd_maxpos[char.decomp_mapping[1]] = comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]].length
+    end
+    comb2nd_minpos[char.decomp_mapping[1]] = temp_index if !comb2nd_minpos[char.decomp_mapping[1]] || temp_index < comb2nd_minpos[char.decomp_mapping[1]] 
+    comb2nd_maxpos[char.decomp_mapping[1]] = temp_index if !comb2nd_maxpos[char.decomp_mapping[1]] || temp_index > comb2nd_maxpos[char.decomp_mapping[1]]     
+    comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]] << char.decomp_mapping[1] << char.code
   end
 end
 
 properties_indicies = {}
 properties = []
 chars.each do |char|
-  c_entry = char.c_entry(comb1st_indicies, comb2nd_indicies)
+
+
+  c_entry = char.c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
   unless properties_indicies[c_entry]
     properties_indicies[c_entry] = properties.length
     properties << c_entry
@@ -259,7 +271,7 @@ for code in 0...0x110000
   for code2 in code...(code+0x100)
     if char_hash[code2]
       stage2_entry << (properties_indicies[char_hash[code2].c_entry(
-        comb1st_indicies, comb2nd_indicies)] + 1)
+        comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)] + 1)
     else
       stage2_entry << 0
     end
@@ -318,17 +330,32 @@ properties.each { |line|
 }
 $stdout << ");\n\n"
 
-$stdout << "utf8proc_combinations:Array[0.." << comb1st_indicies.keys.length * comb2nd_indicies.keys.length - 1  << "] of longint=(\n  "
+$stdout << "utf8proc_combinations_starts:Array[0.." << comb1st_indicies.keys.length  << "] of word=(\n  "
+i = 0
+cumoffset = 0
+comb1st_indicies.keys.sort.each_index do |a|
+  i += 1
+  if i == 8
+    i = 0
+    $stdout << "\n  "
+  end
+  $stdout << cumoffset << ", "
+  cumoffset += comb_array_compressed[a].length
+  raise "too high index" if cumoffset > 65535
+end
+$stdout << cumoffset << ");\n\n"
+
+$stdout << "utf8proc_combinations:Array[0.." << cumoffset << "] of longint=(\n  "
 i = 0
 comb1st_indicies.keys.sort.each_index do |a|
-  comb2nd_indicies.keys.sort.each_index do |b|
+  comb_array_compressed[a].each do |b| 
     i += 1
     if i == 8
       i = 0
       $stdout << "\n  "
     end
-    $stdout << ( comb_array[a][b] or -1 ) << ", "
+    $stdout << b << ", "
   end
 end
-$stdout << ");\n\n"
+$stdout << "0);\n\n"
 
