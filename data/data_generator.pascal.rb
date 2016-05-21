@@ -167,25 +167,26 @@ class UnicodeChar
     $case_folding[code]
   end
   def c_entry(comb1_indicies, comb2_indicies)
-    "  " <<
-    "(category:#{str2c category, 'CATEGORY'};combining_class:#{combining_class}; " <<
-    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
+    ",\n(" <<
+#    "category:#{str2c category, 'CATEGORY'};" <<
+    "combining_class:#{combining_class}; " <<
+#    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
     "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
     "decomp_mapping:#{ary2c decomp_mapping}; " <<
 #    "casefold_mapping:#{ary2c case_folding}; " <<
-    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
-    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
-    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
+#    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
+#    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
+#    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
     "comb1st_index:#{comb1_indicies[code] ?
        (comb1_indicies[code]*comb2_indicies.keys.length) : -1
       };comb2nd_index: #{comb2_indicies[code] or -1}; " <<
-    "bidi_mirrored:#{bidi_mirrored}; " <<
+#    "bidi_mirrored:#{bidi_mirrored}; " <<
     "comp_exclusion:#{$exclusions.include?(code) or $excl_version.include?(code)}; " <<
-    "ignorable:#{$ignorable.include?(code)}; " <<
-    "control_boundary:#{%W[Zl Zp Cc Cf].include?(category) and not [0x200C, 0x200D].include?(category)}; " <<
+#    "ignorable:#{$ignorable.include?(code)}; " <<
+#    "control_boundary:#{%W[Zl Zp Cc Cf].include?(category) and not [0x200C, 0x200D].include?(category)}; " <<
 #    "boundclass#{$grapheme_boundclass[code]}; " <<
 #    "charwidth:#{$charwidth[code]};\n"
-    ")\n"
+    ")"
   end
 end
 
@@ -309,7 +310,8 @@ end
 $stdout << ");\n\n"
 
 $stdout << "utf8proc_properties:Array[0.." << properties.length - 1 << "] of utf8proc_property_t=(\n"
-$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0),\n"
+#$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0)"
+$stdout << "(combining_class:0;decomp_type:0;decomp_mapping:-1;comb1st_index:-1;comb2nd_index:-1;comp_exclusion:false;)"
 properties.each { |line|
   $stdout << line
 }
