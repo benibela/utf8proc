@@ -109,7 +109,7 @@ $excl_version = $excl_version.chomp.split("\n").collect { |e| e.hex }
 #  $case_folding[$1.hex] = $2.split(" ").collect { |e| e.hex }
 #end
 
-$int_array = []
+$int_array = [0]
 $int_array_indicies = {}
 
 def str2c(string, prefix)
@@ -117,14 +117,14 @@ def str2c(string, prefix)
   return "UTF8PROC_#{prefix}_#{string.upcase}"
 end
 def ary2c(array)
-  return "-1" if array.nil?
+  return "0" if array.nil?
   unless $int_array_indicies[array]
     $int_array_indicies[array] = $int_array.length
     array.each { |entry| $int_array << entry }
-    $int_array << -1
   end
   raise "Array index out of bound" if $int_array_indicies[array] >= 65535
-  return "#{$int_array_indicies[array]}"
+  raise "Empty array" if array.length == 0
+  return "#{$int_array_indicies[array]} "
 end
 
 class UnicodeChar
@@ -172,6 +172,7 @@ class UnicodeChar
     "combining_class:#{combining_class}; " <<
 #    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
     "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
+    "decomp_length:#{decomp_mapping ? decomp_mapping.length : 0 }; " <<    
     "decomp_mapping:#{ary2c decomp_mapping}; " <<
 #    "casefold_mapping:#{ary2c case_folding}; " <<
 #    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
@@ -311,7 +312,7 @@ $stdout << stage2flat.last << ");\n\n"
 
 $stdout << "utf8proc_properties:Array[0.." << properties.length << "] of utf8proc_property_t=(\n"
 #$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0)"
-$stdout << "(combining_class:0;decomp_type:0;decomp_mapping:-1;comb1st_index:-1;comb2nd_index:-1;comp_exclusion:false;)"
+$stdout << "(combining_class:0;decomp_type:0;decomp_length:0; decomp_mapping:0;comb1st_index:-1;comb2nd_index:-1;comp_exclusion:false;)"
 properties.each { |line|
   $stdout << line
 }
