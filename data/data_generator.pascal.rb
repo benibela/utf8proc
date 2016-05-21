@@ -171,6 +171,7 @@ class UnicodeChar
     ",\n(" <<
 #    "category:#{str2c category, 'CATEGORY'};" <<
     "combining_class:#{combining_class}; " <<
+    "comp_exclusion:#{($exclusions.include?(code) or $excl_version.include?(code)) ? 1 : 0}; " <<
 #    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
     "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
     "decomp_length:#{decomp_mapping ? decomp_mapping.length : 0 }; " <<    
@@ -182,7 +183,6 @@ class UnicodeChar
     "comb_index:#{comb1_indicies[code] ? comb1_indicies[code] : 
                   comb2nd_minpos[code] ? 0x8000 | (comb2nd_minpos[code] << 8) | (comb2nd_maxpos[code])  : 0}; " <<
 #    "bidi_mirrored:#{bidi_mirrored}; " <<
-    "comp_exclusion:#{$exclusions.include?(code) or $excl_version.include?(code)}; " <<
 #    "ignorable:#{$ignorable.include?(code)}; " <<
 #    "control_boundary:#{%W[Zl Zp Cc Cf].include?(category) and not [0x200C, 0x200D].include?(category)}; " <<
 #    "boundclass#{$grapheme_boundclass[code]}; " <<
@@ -332,7 +332,7 @@ $stdout << stage2flat.last << ");\n\n"
 
 $stdout << "utf8proc_properties:Array[0.." << properties.length << "] of utf8proc_property_t=(\n"
 #$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0)"
-$stdout << "(combining_class:0;decomp_type:0;decomp_length:0; decomp_mapping:0;comb_index:0;comp_exclusion:false;)"
+$stdout << "(combining_class:0;comp_exclusion:0;decomp_type:0;decomp_length:0; decomp_mapping:0;comb_index:0;)"
 properties.each { |line|
   $stdout << line
 }
