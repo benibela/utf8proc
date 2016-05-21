@@ -117,7 +117,7 @@ def str2c(string, prefix)
   return "UTF8PROC_#{prefix}_#{string.upcase}"
 end
 def ary2c(array)
-  return "UINT16_MAX" if array.nil?
+  return "-1" if array.nil?
   unless $int_array_indicies[array]
     $int_array_indicies[array] = $int_array.length
     array.each { |entry| $int_array << entry }
@@ -274,7 +274,7 @@ end
 
 $stdout << "const utf8proc_sequences:Array[0.." << $int_array.length - 1 << "] of longint=( \n "
 i = 0
-$int_array.each do |entry|
+$int_array[0...-1].each do |entry|
   i += 1
   if i == 8
     i = 0
@@ -282,11 +282,11 @@ $int_array.each do |entry|
   end
   $stdout << entry << ", "
 end
-$stdout << ");\n\n"
+$stdout << $int_array.last << ");\n\n"
 
 $stdout << "utf8proc_stage1table:Array[0.." << stage1.length - 1 << "] of word=( \n "
 i = 0
-stage1.each do |entry|
+stage1[0...-1].each do |entry|
   i += 1
   if i == 8
     i = 0
@@ -294,12 +294,12 @@ stage1.each do |entry|
   end
   $stdout << entry << ", "
 end
-$stdout << ");\n\n"
+$stdout << stage1.last << ");\n\n"
 
 stage2flat = stage2.flatten
 $stdout << "utf8proc_stage2table:Array[0.." << stage2flat.length - 1 << "] of word=(\n"
 i = 0
-stage2flat.each do |entry|
+stage2flat[0...-1].each do |entry|
   i += 1
   if i == 8
     i = 0
@@ -307,9 +307,9 @@ stage2flat.each do |entry|
   end
   $stdout << entry << ", "
 end
-$stdout << ");\n\n"
+$stdout << stage2flat.last << ");\n\n"
 
-$stdout << "utf8proc_properties:Array[0.." << properties.length - 1 << "] of utf8proc_property_t=(\n"
+$stdout << "utf8proc_properties:Array[0.." << properties.length << "] of utf8proc_property_t=(\n"
 #$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0)"
 $stdout << "(combining_class:0;decomp_type:0;decomp_mapping:-1;comb1st_index:-1;comb2nd_index:-1;comp_exclusion:false;)"
 properties.each { |line|
