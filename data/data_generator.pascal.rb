@@ -167,6 +167,7 @@ class UnicodeChar
     $case_folding[code]
   end
   def c_entry(comb1_indicies, comb2nd_minpos, comb2nd_maxpos)
+    raise "need two combs indices" if comb1_indicies[code] && comb2nd_minpos[code]
     ",\n(" <<
 #    "category:#{str2c category, 'CATEGORY'};" <<
     "combining_class:#{combining_class}; " <<
@@ -178,7 +179,8 @@ class UnicodeChar
 #    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
 #    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
 #    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
-    "comb1st_index:#{comb1_indicies[code] ? comb1_indicies[code] : -1}; comb2nd_index: #{comb2nd_minpos[code] ? comb2nd_minpos[code] * 256 | comb2nd_maxpos[code] : -1}; " <<
+    "comb_index:#{comb1_indicies[code] ? comb1_indicies[code] : 
+                  comb2nd_minpos[code] ? 0x8000 | (comb2nd_minpos[code] << 8) | (comb2nd_maxpos[code])  : 0}; " <<
 #    "bidi_mirrored:#{bidi_mirrored}; " <<
     "comp_exclusion:#{$exclusions.include?(code) or $excl_version.include?(code)}; " <<
 #    "ignorable:#{$ignorable.include?(code)}; " <<
@@ -222,6 +224,10 @@ comb2nd_maxpos = {}
 comb_array = []
 comb_array_compressed = []
 
+comb1st_indicies[0] = 0
+comb_array[0] = []
+comb_array_compressed[0] = []
+
 chars.each do |char|
   if !char.nil? and char.decomp_type.nil? and char.decomp_mapping and
       char.decomp_mapping.length == 2 and !char_hash[char.decomp_mapping[0]].nil? and
@@ -238,6 +244,7 @@ chars.each do |char|
       comb_array[comb1st_indicies[char.decomp_mapping[0]]][
       comb2nd_indicies[char.decomp_mapping[1]]]
     comb_array[comb1st_indicies[char.decomp_mapping[0]]][comb2nd_indicies[char.decomp_mapping[1]]] = char.code
+    raise "1st index too high" if comb1st_indicies[char.decomp_mapping[0]] >= 0x8000
 
     comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]] ||= []    
     temp_index = comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]].length
@@ -248,6 +255,7 @@ chars.each do |char|
     comb2nd_minpos[char.decomp_mapping[1]] = temp_index if !comb2nd_minpos[char.decomp_mapping[1]] || temp_index < comb2nd_minpos[char.decomp_mapping[1]] 
     comb2nd_maxpos[char.decomp_mapping[1]] = temp_index if !comb2nd_maxpos[char.decomp_mapping[1]] || temp_index > comb2nd_maxpos[char.decomp_mapping[1]]     
     comb_array_compressed[comb1st_indicies[char.decomp_mapping[0]]] << char.decomp_mapping[1] << char.code
+    raise "2nd index too high" if comb2nd_minpos[char.decomp_mapping[1]] > 64 || comb2nd_maxpos[char.decomp_mapping[1]] > 64
   end
 end
 
@@ -324,7 +332,7 @@ $stdout << stage2flat.last << ");\n\n"
 
 $stdout << "utf8proc_properties:Array[0.." << properties.length << "] of utf8proc_property_t=(\n"
 #$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0)"
-$stdout << "(combining_class:0;decomp_type:0;decomp_length:0; decomp_mapping:0;comb1st_index:-1;comb2nd_index:-1;comp_exclusion:false;)"
+$stdout << "(combining_class:0;decomp_type:0;decomp_length:0; decomp_mapping:0;comb_index:0;comp_exclusion:false;)"
 properties.each { |line|
   $stdout << line
 }
