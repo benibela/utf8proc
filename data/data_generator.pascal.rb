@@ -168,7 +168,7 @@ class UnicodeChar
   end
   def c_entry(comb1_indicies, comb2nd_minpos, comb2nd_maxpos)
     raise "need two combs indices" if comb1_indicies[code] && comb2nd_minpos[code]
-    ",\n(" <<
+    "(" <<
 #    "category:#{str2c category, 'CATEGORY'};" <<
     "combining_class:#{combining_class}; " <<
     "comp_exclusion:#{($exclusions.include?(code) or $excl_version.include?(code)) ? 1 : 0}; " <<
@@ -261,9 +261,13 @@ end
 
 properties_indicies = {}
 properties = []
+
+#create an empty record (code 0000 seems to be comb_exclusive which does not help)
+c_entry = UnicodeChar.new("0001;<control>;Cc;0;BN;;;;;N;NULL;;;;").c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
+properties_indicies[c_entry] = properties.length
+properties << c_entry
+
 chars.each do |char|
-
-
   c_entry = char.c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
   unless properties_indicies[c_entry]
     properties_indicies[c_entry] = properties.length
@@ -278,8 +282,7 @@ for code in 0...0x110000
   stage2_entry = []
   for code2 in code...(code+0x100)
     if char_hash[code2]
-      stage2_entry << (properties_indicies[char_hash[code2].c_entry(
-        comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)] + 1)
+      stage2_entry << (properties_indicies[char_hash[code2].c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)])
     else
       stage2_entry << 0
     end
@@ -330,11 +333,12 @@ stage2flat[0...-1].each do |entry|
 end
 $stdout << stage2flat.last << ");\n\n"
 
-$stdout << "utf8proc_properties:Array[0.." << properties.length << "] of utf8proc_property_t=(\n"
-#$stdout << "  (category:0;combining_class:0;bidi_class:0;decomp_type:0;decomp_mapping:nil;casefold_mapping:nil;uppercase_mapping:-1;lowercase_mapping:-1;titlecase_mapping:-1;comb1st_index:-1;comb2nd_index:-1;bidi_mirrored:false;comp_exclusion:false;ignorable:false;control_boundary:false;boundclass:UTF8PROC_BOUNDCLASS_OTHER;charwidth:0)"
-$stdout << "(combining_class:0;comp_exclusion:0;decomp_type:0;decomp_length:0; decomp_mapping:0;comb_index:0;)"
+$stdout << "utf8proc_properties:Array[0.." << properties.length - 1 << "] of utf8proc_property_t=(\n"
+first = true
 properties.each { |line|
+  $stdout << ",\n" if !first
   $stdout << line
+  first = false
 }
 $stdout << ");\n\n"
 
