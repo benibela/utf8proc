@@ -126,6 +126,18 @@ def ary2c(array)
   raise "Empty array" if array.length == 0
   return "#{$int_array_indicies[array]} "
 end
+def cpary2c(array)
+  return "0" if array.nil?
+  return ary2c(array.flat_map { |cp| 
+    if (cp <= 0xFFFF) 
+      raise "utf-16 code: #{cp}" if cp & 0b1111100000000000 == 0b1101100000000000
+      cp 
+    else 
+      temp = cp - 0x10000
+      [(temp >> 10) | 0b1101100000000000, (temp & 0b0000001111111111) | 0b1101110000000000]
+    end
+  })
+end
 
 class UnicodeChar
   attr_accessor :code, :name, :category, :combining_class, :bidi_class,
@@ -175,8 +187,8 @@ class UnicodeChar
 #    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
     "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
     "decomp_length:#{decomp_mapping ? decomp_mapping.length : 0 }; " <<    
-    "decomp_mapping:#{ary2c decomp_mapping}; " <<
-#    "casefold_mapping:#{ary2c case_folding}; " <<
+    "decomp_mapping:#{cpary2c decomp_mapping}; " <<
+#    "casefold_mapping:#{cpary2c case_folding}; " <<
 #    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
 #    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
 #    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
@@ -296,7 +308,7 @@ for code in 0...0x110000
   end
 end
 
-$stdout << "const utf8proc_sequences:Array[0.." << $int_array.length - 1 << "] of longint=( \n "
+$stdout << "const utf8proc_sequences:Array[0.." << $int_array.length - 1 << "] of word=( \n "
 i = 0
 $int_array[0...-1].each do |entry|
   i += 1
