@@ -109,6 +109,16 @@ $excl_version = $excl_version.chomp.split("\n").collect { |e| e.hex }
 #  $case_folding[$1.hex] = $2.split(" ").collect { |e| e.hex }
 #end
 
+UTF8PROC_PROPERTY_HAS_COMB_INDEX1 = 0x80000000;
+UTF8PROC_PROPERTY_HAS_COMB_INDEX2 = 0x40000000;
+UTF8PROC_PROPERTY_IS_COMP_EXCLUSION = 0x20000000;
+UTF8PROC_PROPERTY_IS_DECOMP_COMPAT  = 0x10000000;
+
+UTF8PROC_PROPERTY_DECOMP_LENGTH_OFFSET   = 8+14;
+UTF8PROC_PROPERTY_DECOMP_MAPPING_OFFSET  = 8;
+UTF8PROC_PROPERTY_COMBINING_CLASS_OFFSET  = 0;
+ 
+
 $int_array = [0]
 $int_array_indicies = {}
 
@@ -117,14 +127,14 @@ def str2c(string, prefix)
   return "UTF8PROC_#{prefix}_#{string.upcase}"
 end
 def ary2c(array)
-  return "0" if array.nil?
+  return 0 if array.nil?
   unless $int_array_indicies[array]
     $int_array_indicies[array] = $int_array.length
     array.each { |entry| $int_array << entry }
   end
   raise "Array index out of bound" if $int_array_indicies[array] >= 65535
   raise "Empty array" if array.length == 0
-  return "#{$int_array_indicies[array]} "
+  return $int_array_indicies[array]
 end
 def ary2utf16ary(array)
   return nil if array.nil?
@@ -186,7 +196,7 @@ class UnicodeChar
     "combining_class:#{combining_class}; " <<
     "comp_exclusion:#{($exclusions.include?(code) or $excl_version.include?(code)) ? 1 : 0}; " <<
 #    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
-    "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
+    "decomp_type:#{decomp_type ? 0 : 1}; " <<
     "decomp_length:#{decomp_mapping_utf16 ? decomp_mapping_utf16.length : 0 }; " <<    
     "decomp_mapping:#{ary2c decomp_mapping_utf16}; " <<
 #    "casefold_mapping:#{ary2c case_folding}; " <<
@@ -202,6 +212,24 @@ class UnicodeChar
 #    "charwidth:#{$charwidth[code]};\n"
     ")"
   end
+  def a_entry(comb1_indicies, comb2nd_minpos, comb2nd_maxpos)
+    raise "need two combs indices" if comb1_indicies[code] && comb2nd_minpos[code]
+    array = [
+      (comb1_indicies[code] ? UTF8PROC_PROPERTY_HAS_COMB_INDEX1 : 0) |
+      (comb2nd_minpos[code] ? UTF8PROC_PROPERTY_HAS_COMB_INDEX2 : 0) |
+      (($exclusions.include?(code) or $excl_version.include?(code)) ? UTF8PROC_PROPERTY_IS_COMP_EXCLUSION : 0) |
+      (decomp_type ? UTF8PROC_PROPERTY_IS_DECOMP_COMPAT : 0) |
+      (decomp_mapping_utf16 ? decomp_mapping_utf16.length << UTF8PROC_PROPERTY_DECOMP_LENGTH_OFFSET : 0) |
+      (ary2c(decomp_mapping_utf16) << UTF8PROC_PROPERTY_DECOMP_MAPPING_OFFSET) |
+      (combining_class << UTF8PROC_PROPERTY_COMBINING_CLASS_OFFSET) 
+    ];
+    if (comb1_indicies[code]) 
+      array << comb1_indicies[code] 
+    else if (comb2nd_minpos[code]) 
+      array << ((comb2nd_minpos[code] << 8) | (comb2nd_maxpos[code]));
+    end; end;
+    return array
+  end  
 end
 
 chars = []
@@ -276,15 +304,15 @@ properties_indicies = {}
 properties = []
 
 #create an empty record (code 0000 seems to be comb_exclusive which does not help)
-c_entry = UnicodeChar.new("0001;<control>;Cc;0;BN;;;;;N;NULL;;;;").c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
-properties_indicies[c_entry] = properties.length
-properties << c_entry
+a_entry = UnicodeChar.new("0001;<control>;Cc;0;BN;;;;;N;NULL;;;;").a_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
+properties_indicies[a_entry] = properties.length
+a_entry.each { |entry| properties << entry }
 
 chars.each do |char|
-  c_entry = char.c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
-  unless properties_indicies[c_entry]
-    properties_indicies[c_entry] = properties.length
-    properties << c_entry
+  a_entry = char.a_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)
+  unless properties_indicies[a_entry]
+    properties_indicies[a_entry] = properties.length
+    a_entry.each { |entry| properties << entry }
   end
 end
 
@@ -295,7 +323,7 @@ for code in 0...0x110000
   stage2_entry = []
   for code2 in code...(code+0x100)
     if char_hash[code2]
-      stage2_entry << (properties_indicies[char_hash[code2].c_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)])
+      stage2_entry << (properties_indicies[char_hash[code2].a_entry(comb1st_indicies, comb2nd_minpos, comb2nd_maxpos)])
     else
       stage2_entry << 0
     end
@@ -346,11 +374,17 @@ stage2flat[0...-1].each do |entry|
 end
 $stdout << stage2flat.last << ");\n\n"
 
-$stdout << "utf8proc_properties:Array[0.." << properties.length - 1 << "] of utf8proc_property_t=(\n"
+$stdout << "utf8proc_properties:Array[0.." << properties.length - 1 << "] of DWORD=(\n"
 first = true
-properties.each { |line|
-  $stdout << ",\n" if !first
-  $stdout << line
+i = 0
+properties.each { |e|
+  i += 1
+  $stdout << ", " if !first
+  if i == 8
+    i = 0
+    $stdout << "\n  "
+  end
+  $stdout << "$" << e.to_s(16)
   first = false
 }
 $stdout << ");\n\n"
