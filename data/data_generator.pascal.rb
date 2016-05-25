@@ -126,9 +126,9 @@ def ary2c(array)
   raise "Empty array" if array.length == 0
   return "#{$int_array_indicies[array]} "
 end
-def cpary2c(array)
-  return "0" if array.nil?
-  return ary2c(array.flat_map { |cp| 
+def ary2utf16ary(array)
+  return nil if array.nil?
+  return (array.flat_map { |cp| 
     if (cp <= 0xFFFF) 
       raise "utf-16 code: #{cp}" if cp & 0b1111100000000000 == 0b1101100000000000
       cp 
@@ -141,7 +141,7 @@ end
 
 class UnicodeChar
   attr_accessor :code, :name, :category, :combining_class, :bidi_class,
-                :decomp_type, :decomp_mapping,
+                :decomp_type, :decomp_mapping, :decomp_mapping_utf16,
                 :bidi_mirrored,
                 :uppercase_mapping, :lowercase_mapping, :titlecase_mapping
   def initialize(line)
@@ -170,6 +170,7 @@ class UnicodeChar
     @decomp_type       = $7
     @decomp_mapping    = ($8=='') ? nil :
                          $8.split.collect { |element| element.hex }
+    @decomp_mapping_utf16 = decomp_mapping ? ary2utf16ary(decomp_mapping) : nil
     @bidi_mirrored     = ($13=='Y') ? true : false
     @uppercase_mapping = ($16=='') ? nil : $16.hex
     @lowercase_mapping = ($17=='') ? nil : $17.hex
@@ -186,9 +187,9 @@ class UnicodeChar
     "comp_exclusion:#{($exclusions.include?(code) or $excl_version.include?(code)) ? 1 : 0}; " <<
 #    "bidi_class:#{str2c bidi_class, 'BIDI_CLASS'}; " <<
     "decomp_type:#{str2c decomp_type, 'DECOMP_TYPE'}; " <<
-    "decomp_length:#{decomp_mapping ? decomp_mapping.length : 0 }; " <<    
-    "decomp_mapping:#{cpary2c decomp_mapping}; " <<
-#    "casefold_mapping:#{cpary2c case_folding}; " <<
+    "decomp_length:#{decomp_mapping_utf16 ? decomp_mapping_utf16.length : 0 }; " <<    
+    "decomp_mapping:#{ary2c decomp_mapping_utf16}; " <<
+#    "casefold_mapping:#{ary2c case_folding}; " <<
 #    "uppercase_mapping:#{uppercase_mapping or -1}; " <<
 #    "lowercase_mapping:#{lowercase_mapping or -1}; " <<
 #    "titlecase_mapping:#{titlecase_mapping or -1}; " <<
